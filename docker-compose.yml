@@ -1,0 +1,19 @@
+version: '3.8'
+
+services:
+  google-photos-api:
+    build: .
+    ports:
+      - "7860:7860"
+    environment:
+      - GP_AUTH_DATA=${GP_AUTH_DATA}
+    volumes:
+      - ./video_cache:/app/video_cache
+      - ./.env:/app/.env:ro
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:7860/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
