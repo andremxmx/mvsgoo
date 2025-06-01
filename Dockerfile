@@ -22,8 +22,12 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Create cache directory
 RUN mkdir -p /app/video_cache
 
+# Ensure gpm directory has proper permissions and structure
+RUN chmod -R 755 /app/gpm
+RUN find /app/gpm -name "*.py" -exec chmod 644 {} \;
+
 # Set environment variables
-ENV PYTHONPATH=/app:/app/gpm
+ENV PYTHONPATH=/app:/app/gpm:/app/gpm/gpmc
 ENV PYTHONUNBUFFERED=1
 
 # Expose port

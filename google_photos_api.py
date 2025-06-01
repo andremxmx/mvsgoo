@@ -27,6 +27,12 @@ from typing import List, Optional, Dict, Any
 from urllib.parse import quote
 from collections import defaultdict
 
+# Add gpm to Python path for Linux compatibility
+current_dir = Path(__file__).parent
+gpm_path = current_dir / "gpm"
+if gpm_path.exists() and str(gpm_path) not in sys.path:
+    sys.path.insert(0, str(gpm_path))
+
 # Load environment variables from .env file
 def load_env_file():
     """Load environment variables from .env file"""
@@ -50,7 +56,43 @@ from fastapi.responses import StreamingResponse, JSONResponse, FileResponse, Red
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 import requests
-from gpmc import Client
+
+# Import gpmc with fallback for Linux
+try:
+    from gpmc import Client
+    print("✅ Successfully imported gpmc.Client")
+except ImportError as e:
+    print(f"❌ Failed to import gpmc: {e}")
+    print("🔍 Trying alternative import methods...")
+
+    # Try adding gpm to path again
+    import sys
+    from pathlib import Path
+
+    # Multiple path attempts for different environments
+    possible_paths = [
+        Path(__file__).parent / "gpm",
+        Path(__file__).parent / "gpm" / "gpmc",
+        Path("/app/gpm"),
+        Path("/app/gpm/gpmc"),
+    ]
+
+    for path in possible_paths:
+        if path.exists():
+            print(f"🔍 Trying path: {path}")
+            if str(path) not in sys.path:
+                sys.path.insert(0, str(path))
+
+    try:
+        from gpmc import Client
+        print("✅ Successfully imported gpmc.Client after path adjustment")
+    except ImportError:
+        try:
+            from gpmc.client import Client
+            print("✅ Successfully imported gpmc.client.Client")
+        except ImportError:
+            print("❌ All import attempts failed")
+            raise ImportError("Could not import gpmc.Client - check gpm installation")
 
 # Initialize FastAPI app
 app = FastAPI(
@@ -138,7 +180,7 @@ def refresh_file_cache():
             media_type="all",
             show_progress=False
         )
-        
+
         file_cache.clear()
         for media in all_media:
             file_id = media['media_key']
@@ -1405,14 +1447,14 @@ if __name__ == "__main__":
     print("🚀 Starting Google Photos API Server...")
     print("📋 Available endpoints:")
     print("   http://localhost:7860/api/files/mp4")
+    print("   http://localhost:7860/api/files/smart-stream?id=xxx")
     print("   http://localhost:7860/api/files/download?id=xxx")
-    print("   http://localhost:7860/api/files/stream?id=xxx")
     print("   http://localhost:7860/docs (API documentation)")
 
     uvicorn.run(
         "google_photos_api:app",
         host="0.0.0.0",
-        port=7860,
+        port=7860,  # Default port for Hugging Face Spaces
         reload=False,  # Disable reload in production
         log_level="info"
     )
