@@ -459,15 +459,71 @@ async def startup_event():
     """Initialize the API on startup"""
     print("🚀 Starting Google Photos API...")
 
+    # Debug environment
+    print(f"🔍 Python version: {sys.version}")
+    print(f"🔍 Current working directory: {os.getcwd()}")
+    print(f"🔍 Python path: {sys.path[:3]}...")  # Show first 3 paths
+
+    # Check gpm folder
+    gpm_path = Path(__file__).parent / "gpm"
+    print(f"🔍 GPM path exists: {gpm_path.exists()}")
+    if gpm_path.exists():
+        print(f"🔍 GPM contents: {list(gpm_path.iterdir())[:5]}")  # Show first 5 items
+
+    # Check environment variables
+    auth_data = os.environ.get('GP_AUTH_DATA')
+    print(f"🔍 GP_AUTH_DATA configured: {'✅ Yes' if auth_data else '❌ No'}")
+    if auth_data:
+        print(f"🔍 GP_AUTH_DATA length: {len(auth_data)} chars")
+    else:
+        # Fallback: check if we can use hardcoded token for testing
+        print("⚠️ No GP_AUTH_DATA found in environment")
+        print("🔍 Available env vars:", [k for k in os.environ.keys() if 'GP' in k or 'AUTH' in k])
+
     # Clear any residual cache from previous sessions
     clear_residual_cache()
 
     # Initialize components
-    get_google_photos_client()
-    refresh_file_cache()
-    start_cleanup_task()
+    try:
+        get_google_photos_client()
+        refresh_file_cache()
+        start_cleanup_task()
+        print("✅ API ready!")
+    except Exception as e:
+        print(f"❌ Startup failed: {e}")
+        import traceback
+        traceback.print_exc()
 
-    print("✅ API ready!")
+@app.get("/debug")
+async def debug_info():
+    """Debug endpoint to check system status"""
+    gpm_path = Path(__file__).parent / "gpm"
+    auth_data = os.environ.get('GP_AUTH_DATA')
+
+    return {
+        "system": {
+            "python_version": sys.version,
+            "working_directory": str(os.getcwd()),
+            "python_path": sys.path[:5]
+        },
+        "gpm": {
+            "path_exists": gpm_path.exists(),
+            "path_location": str(gpm_path),
+            "contents": [str(p.name) for p in gpm_path.iterdir()] if gpm_path.exists() else []
+        },
+        "auth": {
+            "gp_auth_data_configured": bool(auth_data),
+            "gp_auth_data_length": len(auth_data) if auth_data else 0
+        },
+        "cache": {
+            "files_cached": len(file_cache),
+            "cache_timestamp": cache_timestamp
+        },
+        "client": {
+            "initialized": gp_client is not None,
+            "client_type": str(type(gp_client)) if gp_client else None
+        }
+    }
 
 @app.get("/")
 async def root():
@@ -514,6 +570,39 @@ async def root():
             "download_progress": "/api/files/download-status/FILE_ID",
             "fast_seek_30min": "/api/files/fast-seek?id=FILE_ID&t=1800&duration=30",
             "download_direct": "/api/files/downloadDirect?id=FILE_ID"
+        }
+    }
+
+@app.get("/debug")
+async def debug_info():
+    """Debug endpoint to check system status"""
+    gpm_path = Path(__file__).parent / "gpm"
+    auth_data = os.environ.get('GP_AUTH_DATA')
+
+    # Check all environment variables that might be related
+    env_vars_with_gp = {k: v[:50] + "..." if len(v) > 50 else v
+                       for k, v in os.environ.items()
+                       if 'GP' in k.upper() or 'AUTH' in k.upper()}
+
+    return {
+        "gpm": {
+            "path_exists": gpm_path.exists(),
+            "path_location": str(gpm_path),
+            "contents": [p.name for p in gpm_path.iterdir()] if gpm_path.exists() else []
+        },
+        "auth": {
+            "gp_auth_data_configured": bool(auth_data),
+            "gp_auth_data_length": len(auth_data) if auth_data else 0,
+            "related_env_vars": env_vars_with_gp
+        },
+        "cache": {
+            "files_cached": len(file_cache),
+            "client_initialized": gp_client is not None,
+            "client_type": str(type(gp_client)) if gp_client else None
+        },
+        "system": {
+            "python_path_contains_gpm": any("gpm" in p for p in sys.path),
+            "working_directory": str(os.getcwd())
         }
     }
 
