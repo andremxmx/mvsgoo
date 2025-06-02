@@ -375,6 +375,7 @@
 
         <div class="nav">
             <button class="nav-btn active" onclick="showSection('overview')">Overview</button>
+            <button class="nav-btn" onclick="showSection('ui')">🎬 Movie UI</button>
             <button class="nav-btn" onclick="showSection('files')">Files & Listing</button>
             <button class="nav-btn" onclick="showSection('streaming')">Streaming</button>
             <button class="nav-btn" onclick="showSection('download')">Download</button>
@@ -390,15 +391,74 @@
                         <div class="endpoint-details">
                             <h4>Base URL</h4>
                             <p><code>http://localhost:8000</code></p>
-                            
+
+                            <h4>🎬 Movie UI</h4>
+                            <p><strong>Main Interface:</strong> <a href="/movie" target="_blank" style="color: #3b82f6;">http://localhost:8000/movie</a><br>
+                               <strong>Documentation:</strong> <a href="/api_docs" target="_blank" style="color: #3b82f6;">http://localhost:8000/api_docs</a></p>
+
+                            <h4>🎬 Streaming Endpoints</h4>
+                            <p><strong>/api/files/stream</strong> - Browser-compatible proxy streaming<br>
+                               <strong>/api/files/smart-stream</strong> - Smart caching with instant seeking<br>
+                               <strong>/api/movies/refresh</strong> - Refresh movie cache (POST)</p>
+
+                            <h4>⚠️ Removed Endpoints</h4>
+                            <p><strong>❌ /api/files/fast-seek</strong> - Removed (redundant)<br>
+                               <strong>❌ /api/files/stream-direct</strong> - Removed (browser compatibility issues)</p>
+
                             <h4>Authentication</h4>
                             <p>Uses GP_AUTH_DATA from environment variables for Google Photos access.</p>
-                            
+
                             <h4>Response Format</h4>
-                            <p>All endpoints return JSON responses unless specified otherwise.</p>
-                            
+                            <p>All endpoints return JSON responses unless specified otherwise. Streaming endpoints return video/mp4.</p>
+
                             <h4>CORS</h4>
                             <p>CORS is enabled for all origins to allow browser access.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="ui" class="section">
+            <div class="endpoint-group">
+                <h3><i class="fas fa-film"></i> Movie UI</h3>
+                <div class="endpoint">
+                    <div class="endpoint-content" style="display: block;">
+                        <div class="endpoint-details">
+                            <h4>🎬 Movie Library Interface</h4>
+                            <p><strong>URL:</strong> <a href="/movie" target="_blank" style="color: #3b82f6;">http://localhost:8000/movie</a></p>
+
+                            <h4>Features</h4>
+                            <p>• ✅ <strong>Clean URLs:</strong> /movie instead of /html/movie_library.html<br>
+                               • ✅ <strong>TMDB Integration:</strong> Movie posters, ratings, and metadata<br>
+                               • ✅ <strong>Hover Buttons:</strong> Stream, Smart, Download appear on hover<br>
+                               • ✅ <strong>Browser Streaming:</strong> Direct playback in new tab<br>
+                               • ✅ <strong>Search & Filter:</strong> Real-time movie search<br>
+                               • ✅ <strong>Pagination:</strong> Efficient browsing of large collections<br>
+                               • ✅ <strong>Refresh Button:</strong> Update cache and show new movies</p>
+
+                            <h4>Streaming Options</h4>
+                            <p><strong>Stream Button:</strong> Opens new tab → Native browser player (proxy mode)<br>
+                               <strong>Smart Button:</strong> Opens new tab → Smart caching with instant seeking<br>
+                               <strong>Download Button:</strong> Direct download from Google Photos</p>
+
+                            <h4>Refresh Functionality</h4>
+                            <p>The refresh button calls <code>POST /api/movies/refresh</code> to:<br>
+                               • Clear current movie cache<br>
+                               • Rescan Google Photos for new files<br>
+                               • Display statistics about changes<br>
+                               • Update the UI with new movies</p>
+
+                            <h4>Technical Details</h4>
+                            <p><strong>Backend:</strong> FastAPI serving static HTML<br>
+                               <strong>Frontend:</strong> Vanilla JavaScript with modern CSS<br>
+                               <strong>Data Source:</strong> Google Photos API via /api/files/mp4<br>
+                               <strong>Metadata:</strong> TMDB API for movie information</p>
+                        </div>
+                        <div class="try-it">
+                            <h4>Quick Access</h4>
+                            <button class="try-btn" onclick="window.open('/movie', '_blank')">🎬 Open Movie UI</button>
+                            <button class="try-btn" onclick="tryEndpoint('/api/movies/refresh', 'POST')" style="margin-left: 10px;">🔄 Test Refresh</button>
                         </div>
                     </div>
                 </div>
@@ -481,19 +541,25 @@
                         <div class="endpoint-info">
                             <span class="method get">GET</span>
                             <span class="endpoint-path">/api/files/stream</span>
-                            <span class="endpoint-description">Proxy streaming through server</span>
+                            <span class="endpoint-description">🎬 Browser-compatible proxy streaming</span>
                         </div>
                         <i class="fas fa-chevron-down expand-icon"></i>
                     </div>
                     <div class="endpoint-content">
                         <div class="endpoint-details">
                             <h4>Description</h4>
-                            <p>Stream video through your server for browser playback. Uses server bandwidth but provides better control and compatibility.</p>
+                            <p>Stream video through your server for direct browser playback. Opens in new tab with native HTML5 video player. Uses server bandwidth but provides maximum compatibility.</p>
 
                             <h4>Features</h4>
-                            <p>• Content-Type: video/mp4 for browser playback<br>
-                               • Range request support for seeking<br>
-                               • CORS enabled for web apps</p>
+                            <p>• ✅ Browser-compatible streaming (Content-Disposition: inline)<br>
+                               • ✅ Range request support for seeking and scrubbing<br>
+                               • ✅ Proper video/mp4 MIME type headers<br>
+                               • ✅ CORS enabled for web applications<br>
+                               • ✅ Works with HTML5 video elements<br>
+                               • ⚠️ Uses server bandwidth (proxy mode)</p>
+
+                            <h4>Use Case</h4>
+                            <p>Perfect for: Web browsers, HTML5 video players, mobile devices, when you need guaranteed compatibility.</p>
 
                             <h4>Parameters</h4>
                             <div class="params">
@@ -516,45 +582,7 @@
                     </div>
                 </div>
 
-                <div class="endpoint">
-                    <div class="endpoint-header" onclick="toggleEndpoint(this)">
-                        <div class="endpoint-info">
-                            <span class="method get">GET</span>
-                            <span class="endpoint-path">/api/files/stream-direct</span>
-                            <span class="endpoint-description">Direct streaming redirect (0 bandwidth)</span>
-                        </div>
-                        <i class="fas fa-chevron-down expand-icon"></i>
-                    </div>
-                    <div class="endpoint-content">
-                        <div class="endpoint-details">
-                            <h4>Description</h4>
-                            <p>Redirects directly to Google Photos streaming URL. Uses zero server bandwidth as client streams directly from Google.</p>
 
-                            <h4>Features</h4>
-                            <p>• 302 redirect to googlevideo.com<br>
-                               • Zero server bandwidth usage<br>
-                               • Direct Google Photos streaming</p>
-
-                            <h4>Parameters</h4>
-                            <div class="params">
-                                <div class="param">
-                                    <span class="param-name">id</span>
-                                    <span class="param-type">string</span>
-                                    <span class="param-required">required</span>
-                                    <span class="param-description">Google Photos file ID</span>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="try-it">
-                            <h4>Try it out</h4>
-                            <div class="input-group">
-                                <label>File ID</label>
-                                <input type="text" id="stream-direct-id" placeholder="AF1QipMH86yETEN4dL0RbsUwlCsFunvuOB_SusWXfpJB">
-                            </div>
-                            <button class="try-btn" onclick="openStream('/api/files/stream-direct', document.getElementById('stream-direct-id').value)">Open Direct Stream</button>
-                        </div>
-                    </div>
-                </div>
 
                 <div class="endpoint">
                     <div class="endpoint-header" onclick="toggleEndpoint(this)">
@@ -767,6 +795,41 @@
         <div id="utils" class="section">
             <div class="endpoint-group">
                 <h3><i class="fas fa-tools"></i> Utilities</h3>
+
+                <div class="endpoint">
+                    <div class="endpoint-header" onclick="toggleEndpoint(this)">
+                        <div class="endpoint-info">
+                            <span class="method post">POST</span>
+                            <span class="endpoint-path">/api/movies/refresh</span>
+                            <span class="endpoint-description">🔄 Refresh movie cache</span>
+                        </div>
+                        <i class="fas fa-chevron-down expand-icon"></i>
+                    </div>
+                    <div class="endpoint-content">
+                        <div class="endpoint-details">
+                            <h4>Description</h4>
+                            <p>Refresh the movie cache by clearing the current cache and rescanning all files from Google Photos. Returns statistics about changes detected.</p>
+
+                            <h4>Features</h4>
+                            <p>• ✅ Clears current file cache<br>
+                               • ✅ Rescans all files from Google Photos<br>
+                               • ✅ Returns before/after statistics<br>
+                               • ✅ Shows difference in movie count<br>
+                               • ✅ Used by Movie UI refresh button</p>
+
+                            <h4>Response</h4>
+                            <p>JSON object with refresh statistics including old count, new count, and difference.</p>
+
+                            <h4>Use Case</h4>
+                            <p>Perfect for: Detecting newly added movies, refreshing after uploading files, updating the Movie UI.</p>
+                        </div>
+                        <div class="try-it">
+                            <h4>Try it out</h4>
+                            <button class="try-btn" onclick="tryEndpoint('/api/movies/refresh', 'POST')">Refresh Movies</button>
+                            <div class="response" id="response-refresh" style="display: none;"></div>
+                        </div>
+                    </div>
+                </div>
 
                 <div class="endpoint">
                     <div class="endpoint-header" onclick="toggleEndpoint(this)">

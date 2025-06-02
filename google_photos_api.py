@@ -24,6 +24,7 @@ import time
 import json
 import struct
 import base64
+from datetime import datetime
 from pathlib import Path
 from typing import List, Optional, Dict, Any
 from urllib.parse import quote
@@ -476,7 +477,7 @@ def start_cleanup_task():
     threading.Thread(target=cleanup_worker, daemon=True).start()
     print(f"🧹 Background cleanup task started (check every {CLEANUP_CHECK_INTERVAL}s, cleanup after {CACHE_CLEANUP_SECONDS}s)")
 
-# Legacy functions removed - using simple download-ahead strategy now
+
 
 # ========================================
 # 🎬 METADATA CACHE SYSTEM
@@ -485,6 +486,25 @@ def start_cleanup_task():
 def get_metadata_file_path(file_id: str) -> Path:
     """Get the metadata file path for a video"""
     return metadata_cache_dir / f"{file_id}.meta"
+
+def extract_tmdb_id_from_filename(filename: str) -> str:
+    """Extract TMDB ID from filename. Expected format: MovieName_tmdbid.extension"""
+    try:
+        # Remove file extension
+        name_without_ext = filename.rsplit('.', 1)[0]
+
+        # Split by underscore and get the last part
+        parts = name_without_ext.split('_')
+        if len(parts) >= 2:
+            potential_id = parts[-1]
+            # Check if it's a valid TMDB ID (should be numeric)
+            if potential_id.isdigit():
+                return potential_id
+
+        return None
+    except Exception as e:
+        print(f"⚠️ Error extracting TMDB ID from filename '{filename}': {e}")
+        return None
 
 def extract_mp4_metadata(file_data: bytes, file_size: int, filename: str) -> dict:
     """Extract MP4 metadata from the first chunk of data"""
@@ -774,15 +794,7 @@ async def debug_info():
         },
         "cache": {
             "files_cached": len(file_cache),
-            "cache_timestamp": cache_timestamp,
-            "sample_files": [
-                {
-                    "id": file_id,
-                    "filename": file_info['filename'],
-                    "type": file_info['type']
-                }
-                for i, (file_id, file_info) in enumerate(file_cache.items()) if i < 5
-            ]
+            "cache_timestamp": cache_timestamp
         },
         "client": {
             "initialized": gp_client is not None,
@@ -823,6 +835,7 @@ async def root():
             "streaming": {
                 "proxy_stream": "/api/files/stream?id=xxx",
                 "direct_stream": "/api/files/stream-direct?id=xxx",
+                "fast_seek": "/api/files/fast-seek?id=xxx&t=1800&duration=30",
                 "smart_download": "/api/files/smart-stream?id=xxx"
             },
             "info": "/api/files/info?id=xxx",
@@ -841,79 +854,62 @@ async def root():
         "examples": {
             "smart_download": "/api/files/smart-stream?id=FILE_ID",
             "download_progress": "/api/files/download-status/FILE_ID",
+            "fast_seek_30min": "/api/files/fast-seek?id=FILE_ID&t=1800&duration=30",
             "download_direct": "/api/files/downloadDirect?id=FILE_ID"
         }
     }
 
 @app.get("/ui")
 async def movie_ui():
-    """Movie UI with TMDB integration"""
+    """Redirect to the new HTML UI"""
+    from fastapi.responses import RedirectResponse
+    return RedirectResponse(url="/movie")
+
+@app.get("/movie")
+async def movies_ui():
+    """Serve the movie library UI"""
     from fastapi.responses import FileResponse
-    import os
+    from pathlib import Path
 
-    html_file_path = os.path.join("html", "movie_library.html")
-    if os.path.exists(html_file_path):
-        return FileResponse(html_file_path, media_type="text/html")
-    else:
-        raise HTTPException(status_code=404, detail="UI file not found")
+    html_file = Path(__file__).parent / "html" / "movie_library.html"
+    if not html_file.exists():
+        raise HTTPException(status_code=404, detail="Movie UI not found")
 
-@app.get("/docs-ui")
+    return FileResponse(html_file)
+
+@app.get("/api_docs")
 async def api_docs_ui():
-    """Interactive API Documentation"""
+    """Serve the API docs HTML"""
     from fastapi.responses import FileResponse
-    import os
+    from pathlib import Path
 
-    html_file_path = os.path.join("html", "api_docs.html")
-    if os.path.exists(html_file_path):
-        return FileResponse(html_file_path, media_type="text/html")
-    else:
-        raise HTTPException(status_code=404, detail="API docs file not found")
+    html_file = Path(__file__).parent / "html" / "api_docs.html"
+    if not html_file.exists():
+        raise HTTPException(status_code=404, detail="API docs not found")
 
-@app.get("/api/files/search")
-async def search_files(q: str = Query(..., description="Search query")):
-    """Search files by filename or ID"""
-    refresh_file_cache()
+    return FileResponse(html_file)
 
-    results = []
-    query = q.lower()
+@app.get("/html/{file_path:path}")
+async def serve_html_files(file_path: str):
+    """Serve HTML files from the html directory"""
+    from fastapi.responses import FileResponse
+    from pathlib import Path
 
-    for file_id, file_info in file_cache.items():
-        # Search by ID or filename
-        if (query in file_id.lower() or
-            query in file_info['filename'].lower()):
-            results.append({
-                'id': file_id,
-                'filename': file_info['filename'],
-                'type': file_info['type'],
-                'size_bytes': file_info['size_bytes'],
-                'match_type': 'id' if query in file_id.lower() else 'filename'
-            })
+    html_dir = Path(__file__).parent / "html"
+    file_full_path = html_dir / file_path
 
-    return {
-        "query": q,
-        "count": len(results),
-        "results": results[:20]  # Limit to 20 results
-    }
-
-
-
-def extract_tmdb_id_from_filename(filename):
-    """Extract TMDB ID from filename with format MovieName_tmdbid.extension"""
+    # Security check - ensure the file is within the html directory
     try:
-        # Remove extension first
-        name_without_ext = filename.rsplit('.', 1)[0]
+        file_full_path.resolve().relative_to(html_dir.resolve())
+    except ValueError:
+        raise HTTPException(status_code=404, detail="File not found")
 
-        # Split by underscore and get the last part
-        parts = name_without_ext.split('_')
-        if len(parts) >= 2:
-            # Check if the last part is a number (TMDB ID)
-            potential_id = parts[-1]
-            if potential_id.isdigit():
-                return potential_id
+    if not file_full_path.exists() or not file_full_path.is_file():
+        raise HTTPException(status_code=404, detail="File not found")
 
-        return None
-    except Exception:
-        return None
+    return FileResponse(file_full_path)
+
+
 
 @app.get("/api/files/mp4")
 async def list_mp4_files():
@@ -930,13 +926,13 @@ async def list_mp4_files():
             all_mp4_files.append({
                 'id': file_id,
                 'filename': file_info['filename'],
-                'tmdb_id': tmdb_id,
                 'size_bytes': file_info['size_bytes'],
                 'size_mb': round(file_info['size_bytes'] / (1024 * 1024), 2),
-                'duration_ms': file_info['duration_ms'],
                 'duration_seconds': file_info['duration_ms'] // 1000 if file_info['duration_ms'] else 0,
+                'duration_ms': file_info['duration_ms'],
                 'timestamp': file_info['timestamp'],
-                'collection_id': file_info['collection_id']
+                'collection_id': file_info['collection_id'],
+                'tmdb_id': tmdb_id
             })
 
     # Deduplicate by filename, keeping the most recent (highest timestamp)
@@ -950,7 +946,7 @@ async def list_mp4_files():
     mp4_files = list(filename_map.values())
     mp4_files.sort(key=lambda x: x['timestamp'], reverse=True)
 
-    print(f"📋 MP4 files: {len(all_mp4_files)} total, {len(mp4_files)} unique after deduplication")
+
 
     return {
         "count": len(mp4_files),
@@ -958,6 +954,51 @@ async def list_mp4_files():
         "total_before_dedup": len(all_mp4_files),
         "duplicates_removed": len(all_mp4_files) - len(mp4_files)
     }
+
+@app.post("/api/movies/refresh")
+async def refresh_movies():
+    """Refresh movie cache and return statistics about changes"""
+    global file_cache, cache_timestamp
+
+    try:
+        # Get current movie count before refresh
+        old_mp4_files = []
+        for file_id, file_info in file_cache.items():
+            if file_info['type'] == 'video' and file_info['filename'].lower().endswith('.mp4'):
+                old_mp4_files.append(file_id)
+        old_count = len(old_mp4_files)
+
+        # Clear the cache to force a fresh scan
+        file_cache.clear()
+        cache_timestamp = 0
+
+        # Refresh the cache
+        refresh_file_cache()
+
+        # Get new movie count after refresh
+        new_mp4_files = []
+        for file_id, file_info in file_cache.items():
+            if file_info['type'] == 'video' and file_info['filename'].lower().endswith('.mp4'):
+                new_mp4_files.append(file_id)
+        new_count = len(new_mp4_files)
+
+        # Calculate difference
+        mp4_difference = new_count - old_count
+
+
+
+        return {
+            "success": True,
+            "message": "Movies refreshed successfully",
+            "old_count": old_count,
+            "new_count": new_count,
+            "mp4_difference": mp4_difference,
+            "timestamp": datetime.now().isoformat()
+        }
+
+    except Exception as e:
+        print(f"❌ Error refreshing movies: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to refresh movies: {str(e)}")
 
 @app.get("/api/files/mp4-raw")
 async def list_mp4_files_raw():
@@ -967,14 +1008,19 @@ async def list_mp4_files_raw():
     mp4_files = []
     for file_id, file_info in file_cache.items():
         if file_info['type'] == 'video' and file_info['filename'].lower().endswith('.mp4'):
+            # Extract TMDB ID from filename
+            tmdb_id = extract_tmdb_id_from_filename(file_info['filename'])
+
             mp4_files.append({
                 'id': file_id,
                 'filename': file_info['filename'],
                 'size_bytes': file_info['size_bytes'],
                 'size_mb': round(file_info['size_bytes'] / (1024 * 1024), 2),
                 'duration_seconds': file_info['duration_ms'] // 1000 if file_info['duration_ms'] else 0,
+                'duration_ms': file_info['duration_ms'],
                 'timestamp': file_info['timestamp'],
-                'collection_id': file_info['collection_id']
+                'collection_id': file_info['collection_id'],
+                'tmdb_id': tmdb_id
             })
 
     # Sort by filename then timestamp
@@ -1043,7 +1089,7 @@ async def download_file(id: str = Query(..., description="File ID")):
     file_info = file_cache[id]
     filename = file_info['filename']
 
-    print(f"📥 Download request: {filename}")
+
 
     try:
         client = get_google_photos_client()
@@ -1086,81 +1132,8 @@ async def download_file(id: str = Query(..., description="File ID")):
         )
 
     except Exception as e:
-        print(f"❌ Download error: {e}")
+
         raise HTTPException(status_code=500, detail=f"Download failed: {str(e)}")
-
-@app.get("/api/files/stream")
-async def stream_file(id: str = Query(..., description="File ID"), request: Request = None):
-    """Stream a video file by ID - Proxy streaming through server for browser playback"""
-    refresh_file_cache()
-
-    if id not in file_cache:
-        raise HTTPException(status_code=404, detail="File not found")
-
-    file_info = file_cache[id]
-    filename = file_info['filename']
-
-    # Only allow video files for streaming
-    if file_info['type'] != 'video':
-        raise HTTPException(status_code=400, detail="File is not a video")
-
-    print(f"🎬 Stream request: {filename}")
-
-    try:
-        client = get_google_photos_client()
-        download_data = client.api.get_download_urls(id)
-
-        # Extract download URL using the corrected path
-        try:
-            download_url = download_data["1"]["5"]["3"]["5"]
-        except KeyError:
-            try:
-                download_url = download_data["1"]["5"]["2"]["6"]
-            except KeyError:
-                try:
-                    download_url = download_data["1"]["5"]["2"]["5"]
-                except KeyError:
-                    raise HTTPException(status_code=500, detail="No download URL found")
-
-        # Handle range requests for seeking
-        range_header = request.headers.get('range') if request else None
-        headers = {}
-        if range_header:
-            headers['Range'] = range_header
-            print(f"🎯 Range request: {range_header}")
-
-        # Make request to Google Photos
-        response = requests.get(download_url, headers=headers, stream=True)
-
-        if response.status_code not in [200, 206]:
-            raise HTTPException(status_code=500, detail=f"Google Photos returned status {response.status_code}")
-
-        # Prepare streaming headers for video playback
-        response_headers = {
-            "Content-Type": "video/mp4",
-            "Accept-Ranges": "bytes",
-            "Access-Control-Allow-Origin": "*",
-            "Cache-Control": "no-cache"
-        }
-
-        # Copy relevant headers from Google Photos response
-        if 'Content-Length' in response.headers:
-            response_headers["Content-Length"] = response.headers['Content-Length']
-        if 'Content-Range' in response.headers:
-            response_headers["Content-Range"] = response.headers['Content-Range']
-
-        print(f"🎬 Streaming {filename} (proxy mode) - Status: {response.status_code}")
-
-        return StreamingResponse(
-            response.iter_content(chunk_size=8192),
-            media_type='video/mp4',
-            headers=response_headers,
-            status_code=response.status_code
-        )
-
-    except Exception as e:
-        print(f"❌ Stream error: {e}")
-        raise HTTPException(status_code=500, detail=f"Stream failed: {str(e)}")
 
 @app.get("/api/files/downloadDirect")
 async def download_direct_redirect(id: str = Query(..., description="File ID")):
@@ -1173,7 +1146,7 @@ async def download_direct_redirect(id: str = Query(..., description="File ID")):
     file_info = file_cache[id]
     filename = file_info['filename']
 
-    print(f"🔗 Direct redirect: {filename}")
+
 
     try:
         client = get_google_photos_client()
@@ -1217,7 +1190,7 @@ async def get_direct_url(id: str = Query(..., description="File ID")):
     file_info = file_cache[id]
     filename = file_info['filename']
 
-    print(f"🔗 Direct URL request for: {filename}")
+
 
     try:
         client = get_google_photos_client()
@@ -1261,12 +1234,8 @@ async def get_google_streaming_url(id: str = Query(..., description="File ID")):
     file_info = file_cache[id]
     filename = file_info['filename']
 
-    print(f"🔗 Google streaming URL request for: {filename}")
-
     try:
         client = get_google_photos_client()
-
-        # Get the full download data to see all available URLs
         download_data = client.api.get_download_urls(id)
 
         # Extract the long Google URL (the one with all the streaming parameters)
@@ -1280,11 +1249,6 @@ async def get_google_streaming_url(id: str = Query(..., description="File ID")):
                     google_url = download_data["1"]["5"]["2"]["5"]
                 except KeyError:
                     raise HTTPException(status_code=500, detail="No Google URL found")
-
-        print(f"✅ Google streaming URL obtained:")
-        print(f"   📄 File: {filename}")
-        print(f"   🔗 URL length: {len(google_url)} characters")
-        print(f"   🎬 URL preview: {google_url[:100]}...")
 
         return {
             "id": id,
@@ -1308,6 +1272,89 @@ async def get_google_streaming_url(id: str = Query(..., description="File ID")):
     except Exception as e:
         print(f"❌ Google URL error: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to get Google URL: {str(e)}")
+
+@app.get("/api/files/stream")
+async def stream_video(
+    id: str = Query(..., description="File ID"),
+    request: Request = None
+):
+    """Stream video through server (proxy streaming) - Browser compatible streaming"""
+    refresh_file_cache()
+
+    if id not in file_cache:
+        raise HTTPException(status_code=404, detail="File not found")
+
+    file_info = file_cache[id]
+    filename = file_info['filename']
+
+    if file_info['type'] != 'video':
+        raise HTTPException(status_code=400, detail="File is not a video")
+
+
+
+    try:
+        client = get_google_photos_client()
+        download_data = client.api.get_download_urls(id)
+
+        # Extract download URL
+        try:
+            download_url = download_data["1"]["5"]["3"]["5"]
+        except KeyError:
+            try:
+                download_url = download_data["1"]["5"]["2"]["6"]
+            except KeyError:
+                try:
+                    download_url = download_data["1"]["5"]["2"]["5"]
+                except KeyError:
+                    raise HTTPException(status_code=500, detail="No download URL found")
+
+        # Handle range requests for seeking
+        range_header = request.headers.get('range') if request else None
+        headers = {}
+        if range_header:
+            headers['Range'] = range_header
+
+        # Stream from Google Photos through our server
+        response = requests.get(download_url, headers=headers, stream=True)
+
+        if response.status_code in [200, 206]:
+            # Prepare response headers for browser video streaming
+            response_headers = {
+                "Accept-Ranges": "bytes",
+                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Allow-Methods": "GET, HEAD, OPTIONS",
+                "Access-Control-Allow-Headers": "Range, Content-Range, Content-Length",
+                "Cache-Control": "public, max-age=3600",
+                "Content-Type": "video/mp4",
+                # CRITICAL: Tell browser to display inline (stream), not download
+                "Content-Disposition": "inline; filename=\"video.mp4\"",
+                # Prevent MIME type sniffing
+                "X-Content-Type-Options": "nosniff",
+                # Additional headers for video streaming
+                "X-Frame-Options": "SAMEORIGIN",
+                "Referrer-Policy": "strict-origin-when-cross-origin"
+            }
+
+            # Copy relevant headers from Google Photos response
+            for header in ['Content-Length', 'Content-Range']:
+                if header in response.headers:
+                    response_headers[header] = response.headers[header]
+
+            # If it's a range request, make sure we return 206
+            status_code = 206 if range_header and response.status_code == 206 else 200
+
+            return StreamingResponse(
+                response.iter_content(chunk_size=8192),
+                status_code=status_code,
+                headers=response_headers,
+                media_type="video/mp4"
+            )
+        else:
+            raise HTTPException(status_code=500, detail=f"Stream failed: {response.status_code}")
+
+    except Exception as e:
+        print(f"❌ Stream error: {e}")
+        raise HTTPException(status_code=500, detail=f"Stream failed: {str(e)}")
 
 
 
@@ -2154,37 +2201,6 @@ async def reset_cache():
         print(f"❌ Cache reset failed: {e}")
         raise HTTPException(status_code=500, detail=f"Cache reset failed: {str(e)}")
 
-@app.post("/api/movies/refresh")
-async def refresh_movies():
-    """Refresh movie cache to detect new uploads - optimized for UI"""
-    global file_cache, cache_timestamp
-
-    old_count = len(file_cache)
-    old_mp4_count = sum(1 for f in file_cache.values() if f['type'] == 'video' and f['filename'].lower().endswith('.mp4'))
-
-    print(f"🎬 Refreshing movie cache (current: {old_mp4_count} MP4 movies)...")
-
-    # Clear cache and force refresh
-    file_cache.clear()
-    cache_timestamp = 0
-    refresh_file_cache()
-
-    new_count = len(file_cache)
-    new_mp4_count = sum(1 for f in file_cache.values() if f['type'] == 'video' and f['filename'].lower().endswith('.mp4'))
-
-    print(f"✅ Movies refreshed: {old_mp4_count} → {new_mp4_count} MP4 videos")
-
-    return {
-        "success": True,
-        "message": "Movie cache refreshed successfully",
-        "old_total_files": old_count,
-        "new_total_files": new_count,
-        "old_mp4_count": old_mp4_count,
-        "new_mp4_count": new_mp4_count,
-        "mp4_difference": new_mp4_count - old_mp4_count,
-        "timestamp": cache_timestamp
-    }
-
 @app.post("/api/cache/clear")
 @app.get("/api/cache/clear")
 async def clear_cache():
@@ -2319,131 +2335,15 @@ async def trigger_auto_refresh():
         print(f"❌ Manual refresh error: {e}")
         raise HTTPException(status_code=500, detail=f"Manual refresh failed: {str(e)}")
 
-@app.get("/api/files/stream-direct")
-async def stream_direct_redirect(id: str = Query(..., description="File ID")):
-    """Direct streaming redirect - Client streams directly from Google Photos (0 bandwidth usage)"""
-    print(f"🔗 Stream-direct request for ID: {id}")
-
-    refresh_file_cache()
-    print(f"📋 Cache contains {len(file_cache)} files")
-
-    if id not in file_cache:
-        print(f"❌ File ID {id} not found in cache")
-        print(f"🔍 Available IDs (first 5): {list(file_cache.keys())[:5]}")
-        raise HTTPException(status_code=404, detail=f"File not found. Cache has {len(file_cache)} files.")
-
-    file_info = file_cache[id]
-    filename = file_info['filename']
-
-    if file_info['type'] != 'video':
-        print(f"❌ File {filename} is not a video (type: {file_info['type']})")
-        raise HTTPException(status_code=400, detail="File is not a video")
-
-    print(f"🔗 Direct stream redirect for: {filename}")
-
-    try:
-        # Get the download URL from Google Photos API
-        client = get_google_photos_client()
-        download_data = client.api.get_download_urls(id)
-
-        # Extract download URL (using the corrected path from our previous fix)
-        try:
-            streaming_url = download_data["1"]["5"]["3"]["5"]
-        except KeyError:
-            try:
-                streaming_url = download_data["1"]["5"]["2"]["6"]
-            except KeyError:
-                try:
-                    streaming_url = download_data["1"]["5"]["2"]["5"]
-                except KeyError:
-                    raise HTTPException(status_code=500, detail="No streaming URL found")
-
-        print(f"🚀 Redirecting to Google Photos streaming URL (0 server bandwidth)")
-        print(f"   📊 Client will stream directly from: googlevideo.com")
-
-        # Return direct redirect - client streams from Google Photos
-        from fastapi.responses import RedirectResponse
-        return RedirectResponse(
-            url=streaming_url,
-            status_code=302,
-            headers={
-                'Cache-Control': 'no-cache',
-                'X-Stream-Type': 'direct-google-redirect',
-                'X-Bandwidth-Usage': '0-bytes-server-side'
-            }
-        )
-
-    except Exception as e:
-        print(f"❌ Direct stream redirect error: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to get streaming URL: {str(e)}")
-
-
-
-
-
 if __name__ == "__main__":
     print("================================================================================")
     print("📋 API ENDPOINTS - Complete Reference")
     print("================================================================================")
     print("")
-    print("🗂️  FILE LISTING:")
-    print("   📋 List MP4s (deduplicated):  http://localhost:8000/api/files/mp4")
-    print("   📋 List MP4s (with duplicates): http://localhost:8000/api/files/mp4-raw")
-    print("   📋 List All Files:            http://localhost:8000/api/files/all")
-    print("   ℹ️  File Info:                 http://localhost:8000/api/files/info?id=FILE_ID")
-    print("")
-    print("📥 DOWNLOAD & STREAMING:")
-    print("   📥 Download (proxy):           http://localhost:8000/api/files/download?id=FILE_ID")
-    print("   🔗 Download (direct redirect): http://localhost:8000/api/files/downloadDirect?id=FILE_ID")
-    print("   🔗 Stream (direct, 0 bandwidth): http://localhost:8000/api/files/stream-direct?id=FILE_ID")
-    print("   🚀 Smart Stream (cache + seek):  http://localhost:8000/api/files/smart-stream?id=FILE_ID")
-    print("")
-    print("🔗 URL EXTRACTION:")
-    print("   🔗 Direct URL (JSON):          http://localhost:8000/api/files/direct-url?id=FILE_ID")
-    print("   🌐 Google Streaming URL:       http://localhost:8000/api/files/google-url?id=FILE_ID")
-    print("")
-    print("🎬 METADATA SYSTEM:")
-    print("   📊 Metadata Status:           http://localhost:8000/api/files/metadata-status")
-    print("   🔄 Extract Metadata (batch):  POST http://localhost:8000/api/files/extract-all-metadata?limit=20")
-    print("")
-    print("📊 STATUS & MONITORING:")
-    print("   📊 Download Status (all):      http://localhost:8000/api/files/download-status")
-    print("   📊 Download Status (single):   http://localhost:8000/api/files/download-status/FILE_ID")
-    print("   💓 Video Heartbeat:           POST http://localhost:8000/api/files/heartbeat?id=FILE_ID")
-    print("   🔧 Debug Info:                http://localhost:8000/debug")
-    print("")
-    print("🧹 CACHE MANAGEMENT:")
-    print("   🔄 Reset Cache (refresh):      http://localhost:8000/api/cache/reset")
-    print("   🎬 Refresh Movies (UI):        POST http://localhost:8000/api/movies/refresh")
-    print("   🗑️  Clear All Cache:           http://localhost:8000/api/cache/clear")
-    print("   🗑️  Clear Specific Cache:      POST http://localhost:8000/api/files/clear-cache?file_id=FILE_ID")
-    print("   🚨 Force Cleanup:             POST http://localhost:8000/api/files/force-cleanup")
-    print("   ⏰ Auto-refresh Status:        http://localhost:8000/api/cache/auto-refresh/status")
-    print("   ⚙️  Auto-refresh Configure:    POST http://localhost:8000/api/cache/auto-refresh/configure")
-    print("   🚀 Auto-refresh Trigger:       POST http://localhost:8000/api/cache/auto-refresh/trigger")
-    print("")
-    print("📚 DOCUMENTATION & HELP:")
-    print("   📚 FastAPI Auto Docs:         http://localhost:8000/docs")
-    print("   📋 Interactive API Docs:      http://localhost:8000/docs-ui")
-    print("   📖 API Root (info):           http://localhost:8000/")
-    print("   🎬 Movie UI (TMDB + Streaming): http://localhost:8000/ui")
-    print("")
-    print("💡 QUICK EXAMPLES:")
-    print("   🔗 Watch (direct, 0 bandwidth): http://localhost:8000/api/files/stream-direct?id=AF1QipMH86yETEN4dL0RbsUwlCsFunvuOB_SusWXfpJB")
-    print("   🚀 Watch (smart cache):      http://localhost:8000/api/files/smart-stream?id=AF1QipMH86yETEN4dL0RbsUwlCsFunvuOB_SusWXfpJB")
-    print("   📥 Download a file:           http://localhost:8000/api/files/download?id=AF1QipMH86yETEN4dL0RbsUwlCsFunvuOB_SusWXfpJB")
-    print("")
-    print("✨ FEATURES:")
-    print("   🎯 Smart-stream: Download-ahead caching with instant seeking")
-    print("   🔗 Direct streaming: 0 server bandwidth for all apps")
-    print("   📦 Metadata cache: Extract MP4 metadata (20MB → 1.4KB files)")
-    print("   🧹 Auto-cleanup: Smart cache management with configurable thresholds")
-    print("")
     print("================================================================================")
     print("⚠️  Press Ctrl+C to stop the server")
     print("🌐 Server running on: http://localhost:8000")
     print("🎬 Movie UI available at: http://localhost:8000/ui")
-    print("📋 Interactive API Docs: http://localhost:8000/docs-ui")
     print("================================================================================")
 
     uvicorn.run(

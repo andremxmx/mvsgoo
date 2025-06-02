@@ -107,6 +107,7 @@ def start_api_server():
     print("\n🧹 CACHE MANAGEMENT:")
     print("   🔄 Reset Cache (refresh):      http://localhost:8000/api/cache/reset")
     print("   🗑️  Clear All Cache:           http://localhost:8000/api/cache/clear")
+    print("   🎬 Refresh Movies:             http://localhost:8000/api/movies/refresh (POST)")
     print("   ⏰ Auto-refresh Status:        http://localhost:8000/api/cache/auto-refresh/status")
     print("   ⚙️  Auto-refresh Configure:    http://localhost:8000/api/cache/auto-refresh/configure")
     print("   🚀 Auto-refresh Trigger:       http://localhost:8000/api/cache/auto-refresh/trigger")
@@ -125,7 +126,8 @@ def start_api_server():
     print("\n" + "=" * 80)
     print("⚠️  Press Ctrl+C to stop the server")
     print("🌐 Server running on: http://localhost:8000")
-    print("🎬 Movie UI available at: http://localhost:8000/ui")
+    print("🎬 Movie UI available at: http://localhost:8000/movie")
+    print("📚 API Documentation at: http://localhost:8000/api_docs")
     print("=" * 80)
     print()
     

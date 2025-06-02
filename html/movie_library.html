@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>🎬 Movie Library - Google Photos + TMDB</title>
+    <title>🎬 Movie Library - v2.0</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <style>
@@ -189,11 +189,6 @@
             animation: spin 1s linear infinite;
         }
 
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-
         .movies-grid {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
@@ -205,13 +200,16 @@
             border: 1px solid var(--border);
             border-radius: var(--radius);
             overflow: hidden;
-            transition: var(--transition);
+            transition: all 0.3s ease;
             cursor: pointer;
+            position: relative;
         }
 
         .movie-card:hover {
             background: var(--surface-hover);
             border-color: var(--text-dim);
+            transform: translateY(-4px);
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
         }
 
         .movie-poster-container {
@@ -245,6 +243,20 @@
 
         .movie-content {
             padding: var(--spacing);
+            position: relative;
+        }
+
+        .movie-card:hover .movie-content::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.1);
+            border-radius: var(--radius);
+            pointer-events: none;
+            opacity: 0.5;
         }
 
         .movie-title {
@@ -284,14 +296,28 @@
         }
 
         .movie-actions {
-            display: flex;
+            display: flex !important;
             gap: 0.5rem;
+            opacity: 0;
+            visibility: hidden;
+            transform: translateY(10px);
+            transition: all 0.3s ease;
+            pointer-events: none;
         }
+
+        .movie-card:hover .movie-actions {
+            opacity: 1 !important;
+            visibility: visible !important;
+            transform: translateY(0) !important;
+            pointer-events: auto;
+        }
+
+
 
         .action-btn {
             flex: 1;
             padding: 0.5rem;
-            background: transparent;
+            background: rgba(17, 17, 17, 0.9);
             border: 1px solid var(--border);
             border-radius: var(--radius);
             color: var(--text-muted);
@@ -304,12 +330,14 @@
             align-items: center;
             justify-content: center;
             gap: 0.375rem;
+            backdrop-filter: blur(10px);
         }
 
         .action-btn:hover {
-            background: var(--border);
-            color: var(--text);
-            border-color: var(--text-dim);
+            background: var(--text);
+            color: var(--bg);
+            border-color: var(--text);
+            transform: translateY(-2px);
         }
 
         .action-btn i {
@@ -436,8 +464,6 @@
                 margin: 0 0.5rem;
             }
         }
-
-
     </style>
 </head>
 <body>
@@ -585,8 +611,6 @@
             }
         }
 
-
-
         function formatDuration(ms, tmdbRuntime = null) {
             // Prefer TMDB runtime if available
             if (tmdbRuntime && tmdbRuntime > 0) {
@@ -649,38 +673,33 @@
         }
 
         function createMovieCard(movie, tmdbData = null) {
-            const posterUrl = tmdbData && tmdbData.poster_path
-                ? `${TMDB_IMAGE_BASE}${tmdbData.poster_path}`
-                : 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzAwIiBoZWlnaHQ9IjQ1MCIgdmlld0JveD0iMCAwIDMwMCA0NTAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIzMDAiIGhlaWdodD0iNDUwIiBmaWxsPSIjMWExYTJlIi8+Cjx0ZXh0IHg9IjE1MCIgeT0iMjI1IiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTgiIGZpbGw9IiNiOGI4ZDEiIHRleHQtYW5jaG9yPSJtaWRkbGUiPk5vIFBvc3RlcjwvdGV4dD4KPC9zdmc+';
+            try {
+                const posterUrl = tmdbData && tmdbData.poster_path
+                    ? `${TMDB_IMAGE_BASE}${tmdbData.poster_path}`
+                    : 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzAwIiBoZWlnaHQ9IjQ1MCIgdmlld0JveD0iMCAwIDMwMCA0NTAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIzMDAiIGhlaWdodD0iNDUwIiBmaWxsPSIjMWExYTJlIi8+Cjx0ZXh0IHg9IjE1MCIgeT0iMjI1IiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTgiIGZpbGw9IiNiOGI4ZDEiIHRleHQtYW5jaG9yPSJtaWRkbGUiPk5vIFBvc3RlcjwvdGV4dD4KPC9zdmc+';
 
-            const title = tmdbData ? tmdbData.title : movie.filename.replace(/\.(mp4|mkv|avi|mov)$/i, '');
-            const year = tmdbData && tmdbData.release_date ? new Date(tmdbData.release_date).getFullYear() : '';
-            const rating = tmdbData ? tmdbData.vote_average : null;
-            const duration = formatDuration(movie.duration_ms, tmdbData?.runtime);
+                const title = tmdbData ? tmdbData.title : movie.filename.replace(/\.(mp4|mkv|avi|mov)$/i, '');
+                const year = tmdbData && tmdbData.release_date ? new Date(tmdbData.release_date).getFullYear() : '';
+                const rating = tmdbData ? tmdbData.vote_average : null;
+                const duration = formatDuration(movie.duration_ms, tmdbData?.runtime);
 
-            return `
-                <div class="movie-card">
+                // Escape title to prevent HTML injection
+                const safeTitle = title.replace(/'/g, '&#39;').replace(/"/g, '&quot;');
+
+                const html = `<div class="movie-card">
                     <div class="movie-poster-container">
-                        <img src="${posterUrl}" alt="${title}" class="movie-poster"
-                             onerror="this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzAwIiBoZWlnaHQ9IjQ1MCIgdmlld0JveD0iMCAwIDMwMCA0NTAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIzMDAiIGhlaWdodD0iNDUwIiBmaWxsPSIjMWExYTJlIi8+Cjx0ZXh0IHg9IjE1MCIgeT0iMjI1IiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTgiIGZpbGw9IiNiOGI4ZDEiIHRleHQtYW5jaG9yPSJtaWRkbGUiPk5vIFBvc3RlcjwvdGV4dD4KPC9zdmc+'"
-                        ${rating ? `
-                            <div class="movie-rating">
-                                <i class="fas fa-star"></i>
-                                <span>${rating.toFixed(1)}</span>
-                            </div>
-                        ` : ''}
+                        <img src="${posterUrl}" alt="${safeTitle}" class="movie-poster">
+                        ${rating ? `<div class="movie-rating"><i class="fas fa-star"></i><span>${rating.toFixed(1)}</span></div>` : ''}
                     </div>
                     <div class="movie-content">
-                        <div class="movie-title">${title}</div>
+                        <div class="movie-title">${safeTitle}</div>
                         ${year ? `<div class="movie-year">${year}</div>` : ''}
-
                         <div class="movie-info">
                             <div class="info-item">
                                 <i class="fas fa-clock info-icon"></i>
                                 <span>${duration}</span>
                             </div>
                         </div>
-
                         <div class="movie-actions">
                             <a href="/api/files/stream?id=${movie.id}" class="action-btn stream-btn" target="_blank">
                                 <i class="fas fa-play"></i>
@@ -696,8 +715,14 @@
                             </a>
                         </div>
                     </div>
-                </div>
-            `;
+                </div>`;
+
+                console.log('🔍 HTML length:', html.length);
+                return html;
+            } catch (error) {
+                console.error('❌ Error in createMovieCard:', error);
+                return '<div class="movie-card">Error creating card</div>';
+            }
         }
 
         // Cache for TMDB data
@@ -728,8 +753,40 @@
                 // Try to get cached TMDB data using the new cache key format
                 const cacheKey = movie.tmdb_id ? `tmdb_${movie.tmdb_id}` : movie.filename;
                 const tmdbData = tmdbCache.get(cacheKey);
-                movieElement.innerHTML = createMovieCard(movie, tmdbData);
-                moviesGrid.appendChild(movieElement.firstElementChild);
+                const cardHTML = createMovieCard(movie, tmdbData);
+                console.log('🔍 Generated HTML for', movie.filename, ':', cardHTML.substring(0, 300) + '...');
+                movieElement.innerHTML = cardHTML;
+                const cardElement = movieElement.firstElementChild;
+                console.log('🔍 Card element after parsing:', cardElement);
+                console.log('🔍 Card element HTML:', cardElement ? cardElement.outerHTML.substring(0, 300) + '...' : 'NULL');
+
+                // Debug: Add event listeners to test hover
+                cardElement.addEventListener('mouseenter', () => {
+                    console.log('🎬 Mouse entered movie card:', movie.filename);
+                    console.log('🔍 Card HTML:', cardElement.innerHTML.substring(0, 200) + '...');
+                    const actions = cardElement.querySelector('.movie-actions');
+                    if (actions) {
+                        console.log('✅ Found movie-actions element');
+                        actions.style.opacity = '1';
+                        actions.style.visibility = 'visible';
+                        actions.style.transform = 'translateY(0)';
+                    } else {
+                        console.log('❌ movie-actions element not found');
+                        console.log('🔍 Available classes:', cardElement.querySelectorAll('*'));
+                    }
+                });
+
+                cardElement.addEventListener('mouseleave', () => {
+                    console.log('🎬 Mouse left movie card');
+                    const actions = cardElement.querySelector('.movie-actions');
+                    if (actions) {
+                        actions.style.opacity = '0';
+                        actions.style.visibility = 'hidden';
+                        actions.style.transform = 'translateY(10px)';
+                    }
+                });
+
+                moviesGrid.appendChild(cardElement);
             });
 
             updatePagination();
