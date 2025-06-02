@@ -562,7 +562,7 @@ class Api:
         """
         proto_body = {
             "1": album_key,
-            "2": {"1": limit if limit else 1000},  # Default to 1000 if no limit
+            "2": {"1": limit if limit else 50000},  # Increased default limit
             "3": {"3": self.model, "4": self.make, "5": self.android_api_version},
         }
 

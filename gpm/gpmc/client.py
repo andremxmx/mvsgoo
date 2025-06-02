@@ -510,8 +510,8 @@ class Client:
         except (TypeError, ValueError) as e:
             raise ValueError("Invalid SHA-1 hash format") from e
 
-        # Process in batches of 500 to avoid API limits
-        batch_size = 500
+        # Process in larger batches for better performance
+        batch_size = 10000
         response = {}
         for i in range(0, len(dedup_keys), batch_size):
             batch = dedup_keys[i : i + batch_size]
@@ -537,8 +537,8 @@ class Client:
             requests.HTTPError: If the API request fails.
             ValueError: If media_keys is empty.
         """
-        album_limit = 20000  # Maximum number of items per album
-        batch_size = 500  # Number of items to process per API call
+        album_limit = 50000  # Increased maximum number of items per album
+        batch_size = 10000  # Increased number of items to process per API call
         album_keys = []
         album_counter = 1
 

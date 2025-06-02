@@ -189,22 +189,210 @@ def refresh_file_cache():
     client = get_google_photos_client()
     
     try:
-        all_media = client.list_media_from_library_state(
-            media_type="all",
-            show_progress=False
-        )
+        # Add diagnostics to understand what's happening
+        print("🔄 Using complete cache system with pagination...")
+        print(f"🔍 Client type: {type(client)}")
+        print(f"🔍 Cache directory: {client.cache_dir}")
+        print(f"🔍 Database path: {client.db_path}")
+        print(f"🔍 Database exists: {client.db_path.exists()}")
+
+        # Check if we can authenticate
+        try:
+            # Test authentication by trying to get library state
+            print("🔐 Testing authentication...")
+            test_response = client.api.get_library_state()
+            print("✅ Authentication successful")
+        except Exception as auth_error:
+            print(f"❌ Authentication failed: {auth_error}")
+            # Try the fallback method
+            print("🔄 Falling back to library state method...")
+            all_media = client.list_media_from_library_state(
+                media_type="all",
+                show_progress=False
+            )
+            print(f"📊 Fallback method retrieved: {len(all_media)} items")
+
+        # Force a complete cache rebuild to ensure we get all data
+        print("🔄 Forcing complete cache rebuild...")
+
+        # Delete the existing database to force a fresh start
+        if client.db_path.exists():
+            print(f"🗑️ Removing existing cache database: {client.db_path}")
+            client.db_path.unlink()
+
+        # Force cache directory creation
+        client.cache_dir.mkdir(parents=True, exist_ok=True)
+
+        print("🔄 Updating cache with fresh start...")
+        client.update_cache(show_progress=True)
+
+        print("🔄 Listing from cache...")
+
+        # Check what's actually in the database
+        try:
+            import sys
+            import sqlite3
+            sys.path.insert(0, str(Path(__file__).parent / "gpm"))
+
+            # Direct SQLite connection since storage module doesn't exist
+            with sqlite3.connect(client.db_path) as conn:
+                # Get some basic stats from the database
+                cursor = conn.cursor()
+                cursor.execute("SELECT name FROM sqlite_master WHERE type='table';")
+                tables = cursor.fetchall()
+                print(f"🗃️ Database tables: {[table[0] for table in tables]}")
+
+                if ('remote_media',) in tables:
+                    cursor.execute("SELECT COUNT(*) FROM remote_media;")
+                    media_count = cursor.fetchone()[0]
+                    print(f"📊 Total media records in DB: {media_count}")
+
+                    # First, let's see the table structure
+                    cursor.execute("PRAGMA table_info(remote_media);")
+                    columns = cursor.fetchall()
+                    column_names = [col[1] for col in columns]
+                    print(f"🗂️ Table columns: {column_names}")
+
+                    # Get some sample data to understand the structure
+                    cursor.execute("SELECT * FROM remote_media LIMIT 3;")
+                    samples = cursor.fetchall()
+                    print(f"📝 Sample records (first 3):")
+                    for i, sample in enumerate(samples, 1):
+                        print(f"   Record {i}: {len(sample)} fields")
+                        # Show first few fields
+                        for j, (col_name, value) in enumerate(zip(column_names[:8], sample[:8])):
+                            print(f"      {col_name}: {value}")
+                        if len(sample) > 8:
+                            print(f"      ... and {len(sample) - 8} more fields")
+
+                    # Check if we have more than 500 files
+                    if media_count > 500:
+                        print(f"✅ CONFIRMED: Database has {media_count} files (MORE than 500 limit)")
+                    elif media_count == 500:
+                        print(f"⚠️ Database has exactly 500 files (might be limited)")
+                    else:
+                        print(f"📊 Database has {media_count} files (less than 500)")
+                elif ('media',) in tables:
+                    # Fallback to old table name
+                    cursor.execute("SELECT COUNT(*) FROM media;")
+                    media_count = cursor.fetchone()[0]
+                    print(f"📊 Total media records in DB (old format): {media_count}")
+                else:
+                    print("❌ No 'remote_media' or 'media' table found in database")
+        except Exception as db_error:
+            print(f"❌ Database inspection failed: {db_error}")
+
+        # Since list_remote_media is failing, let's query the database directly
+        print("🔍 list_remote_media is failing, querying database directly...")
+
+        try:
+            # Query the database directly to get all media
+            with sqlite3.connect(client.db_path) as conn:
+                cursor = conn.cursor()
+
+                # First, let's check the trash_timestamp values
+                cursor.execute("SELECT COUNT(*) FROM remote_media WHERE trash_timestamp IS NULL;")
+                non_trashed = cursor.fetchone()[0]
+                print(f"🗑️ Files with trash_timestamp IS NULL: {non_trashed}")
+
+                cursor.execute("SELECT COUNT(*) FROM remote_media WHERE trash_timestamp IS NOT NULL;")
+                trashed = cursor.fetchone()[0]
+                print(f"🗑️ Files with trash_timestamp IS NOT NULL: {trashed}")
+
+                # Let's see some sample trash_timestamp values
+                cursor.execute("SELECT trash_timestamp FROM remote_media LIMIT 5;")
+                trash_samples = cursor.fetchall()
+                print(f"🗑️ Sample trash_timestamp values: {[t[0] for t in trash_samples]}")
+
+                # Try getting ALL files regardless of trash status first
+                cursor.execute("""
+                    SELECT media_key, file_name, type, size_bytes, utc_timestamp, collection_id, duration, trash_timestamp
+                    FROM remote_media
+                    ORDER BY utc_timestamp DESC
+                    LIMIT 10
+                """)
+
+                db_results = cursor.fetchall()
+                print(f"📊 Direct DB query found (all files): {len(db_results)} files")
+
+                # Show sample data to understand the trash_timestamp pattern
+                for i, row in enumerate(db_results[:3], 1):
+                    media_key, file_name, media_type, size_bytes, utc_timestamp, collection_id, duration, trash_timestamp = row
+                    print(f"   Sample {i}: {file_name} - trash_timestamp: {trash_timestamp}")
+
+                # Now get all files (including those with trash_timestamp = 0 which might mean not trashed)
+                cursor.execute("""
+                    SELECT media_key, file_name, type, size_bytes, utc_timestamp, collection_id, duration
+                    FROM remote_media
+                    WHERE trash_timestamp IS NULL OR trash_timestamp = 0
+                    ORDER BY utc_timestamp DESC
+                """)
+
+                db_results = cursor.fetchall()
+                print(f"📊 Files with NULL or 0 trash_timestamp: {len(db_results)} files")
+
+                # If still 0, let's just get ALL files and filter later
+                if len(db_results) == 0:
+                    print("🔄 Getting ALL files regardless of trash status...")
+                    cursor.execute("""
+                        SELECT media_key, file_name, type, size_bytes, utc_timestamp, collection_id, duration
+                        FROM remote_media
+                        ORDER BY utc_timestamp DESC
+                    """)
+                    db_results = cursor.fetchall()
+                    print(f"📊 ALL files retrieved: {len(db_results)} files")
+
+                # Convert to the format expected by our system
+                all_media = []
+                for row in db_results:
+                    media_key, file_name, media_type, size_bytes, utc_timestamp, collection_id, duration = row
+
+                    media_item = {
+                        'media_key': media_key,
+                        'file_name': file_name,
+                        'type': media_type,
+                        'size_bytes': size_bytes or 0,
+                        'timestamp': utc_timestamp or 0,
+                        'collection_id': collection_id or '',
+                        'duration': duration or 0
+                    }
+                    all_media.append(media_item)
+
+                print(f"✅ Successfully converted {len(all_media)} database records")
+
+        except Exception as db_error:
+            print(f"❌ Direct database query failed: {db_error}")
+            print("🔄 Falling back to library state method...")
+
+            # Final fallback to the original method
+            all_media = client.list_media_from_library_state(
+                media_type="all",
+                show_progress=False
+            )
+            print(f"✅ Fallback method retrieved: {len(all_media)} items")
+
+        print(f"📊 Total media items retrieved: {len(all_media)}")
 
         file_cache.clear()
         for media in all_media:
             file_id = media['media_key']
+
+            # Handle different data formats (library_state vs cache)
+            filename = media.get('file_name') or media.get('filename', 'Unknown')
+            size_bytes = media.get('size_bytes', 0)
+            duration_ms = media.get('duration', 0)
+            media_type = media.get('type', 1)
+            timestamp = media.get('timestamp', 0) or media.get('utc_timestamp', 0)
+            collection_id = media.get('collection_id', '')
+
             file_cache[file_id] = {
                 'id': file_id,
-                'filename': media['file_name'],
-                'size_bytes': media.get('size_bytes', 0),
-                'duration_ms': media.get('duration', 0),
-                'type': 'video' if media.get('type') == 2 else 'image',
-                'timestamp': media.get('timestamp', 0),
-                'collection_id': media.get('collection_id', '')
+                'filename': filename,
+                'size_bytes': size_bytes,
+                'duration_ms': duration_ms,
+                'type': 'video' if media_type == 2 else 'image',
+                'timestamp': timestamp,
+                'collection_id': collection_id
             }
         
         cache_timestamp = time.time()
@@ -777,6 +965,19 @@ async def debug_info():
     gpm_path = Path(__file__).parent / "gpm"
     auth_data = os.environ.get('GP_AUTH_DATA')
 
+    # Get client info if available
+    client_info = {}
+    if gp_client:
+        try:
+            client_info = {
+                "cache_dir": str(gp_client.cache_dir),
+                "db_path": str(gp_client.db_path),
+                "db_exists": gp_client.db_path.exists(),
+                "db_size": gp_client.db_path.stat().st_size if gp_client.db_path.exists() else 0
+            }
+        except Exception as e:
+            client_info = {"error": str(e)}
+
     return {
         "system": {
             "python_version": sys.version,
@@ -798,7 +999,8 @@ async def debug_info():
         },
         "client": {
             "initialized": gp_client is not None,
-            "client_type": str(type(gp_client)) if gp_client else None
+            "client_type": str(type(gp_client)) if gp_client else None,
+            **client_info
         }
     }
 
@@ -1920,15 +2122,15 @@ async def video_heartbeat(id: str = Query(..., description="File ID being watche
 
 @app.post("/api/files/extract-all-metadata")
 async def extract_all_metadata(
-    limit: int = Query(20, description="Maximum files to process (10, 20, 50, 100)"),
+    limit: int = Query(1000, description="Maximum files to process (unlimited)"),
     skip_cached: bool = Query(True, description="Skip files that already have metadata cached")
 ):
     """Extract metadata for MP4 files (first 20MB only) - batch processing"""
     refresh_file_cache()
 
-    # Validate limit
-    if limit not in [10, 20, 50, 100]:
-        raise HTTPException(status_code=400, detail="Limit must be 10, 20, 50, or 100")
+    # Validate limit - now unlimited
+    if limit < 1:
+        raise HTTPException(status_code=400, detail="Limit must be at least 1")
 
     print(f"🎬 Starting metadata extraction: max {limit} files, skip_cached={skip_cached}")
 
