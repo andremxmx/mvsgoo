@@ -1,0 +1,961 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>📚 Google Photos API - Interactive Documentation</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #0a0a0a;
+            --surface: #111111;
+            --surface-hover: #1a1a1a;
+            --border: #222222;
+            --text: #ffffff;
+            --text-muted: #888888;
+            --text-dim: #555555;
+            --accent: #ffffff;
+            --accent-dim: #cccccc;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --error: #ef4444;
+            --info: #3b82f6;
+            --radius: 8px;
+            --radius-lg: 12px;
+            --spacing: 1rem;
+            --transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            line-height: 1.5;
+            font-weight: 400;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--border);
+            border-radius: 3px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--text-dim);
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 var(--spacing);
+        }
+
+        .header {
+            padding: 3rem 0 2rem;
+            border-bottom: 1px solid var(--border);
+            margin-bottom: 2rem;
+        }
+
+        .header h1 {
+            font-size: 1.75rem;
+            font-weight: 600;
+            color: var(--text);
+            margin-bottom: 0.5rem;
+        }
+
+        .header p {
+            font-size: 0.875rem;
+            color: var(--text-muted);
+            font-weight: 400;
+        }
+
+        .nav {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 2rem;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 1rem;
+        }
+
+        .nav-btn {
+            padding: 0.5rem 1rem;
+            background: transparent;
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            color: var(--text-muted);
+            font-size: 0.875rem;
+            cursor: pointer;
+            transition: var(--transition);
+        }
+
+        .nav-btn:hover, .nav-btn.active {
+            background: var(--surface-hover);
+            color: var(--text);
+            border-color: var(--text-dim);
+        }
+
+        .section {
+            display: none;
+            margin-bottom: 2rem;
+        }
+
+        .section.active {
+            display: block;
+        }
+
+        .endpoint-group {
+            margin-bottom: 2rem;
+        }
+
+        .endpoint-group h3 {
+            font-size: 1.125rem;
+            font-weight: 500;
+            color: var(--text);
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .endpoint {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            margin-bottom: 1rem;
+            overflow: hidden;
+        }
+
+        .endpoint-header {
+            padding: 1rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            transition: var(--transition);
+        }
+
+        .endpoint-header:hover {
+            background: var(--surface-hover);
+        }
+
+        .endpoint-info {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .method {
+            padding: 0.25rem 0.5rem;
+            border-radius: var(--radius);
+            font-size: 0.75rem;
+            font-weight: 500;
+            text-transform: uppercase;
+        }
+
+        .method.get {
+            background: var(--info);
+            color: white;
+        }
+
+        .method.post {
+            background: var(--success);
+            color: white;
+        }
+
+        .endpoint-path {
+            font-family: 'Monaco', 'Menlo', monospace;
+            font-size: 0.875rem;
+            color: var(--text);
+        }
+
+        .endpoint-description {
+            font-size: 0.875rem;
+            color: var(--text-muted);
+        }
+
+        .expand-icon {
+            transition: var(--transition);
+            color: var(--text-muted);
+        }
+
+        .endpoint.expanded .expand-icon {
+            transform: rotate(180deg);
+        }
+
+        .endpoint-content {
+            display: none;
+            padding: 0 1rem 1rem;
+            border-top: 1px solid var(--border);
+        }
+
+        .endpoint.expanded .endpoint-content {
+            display: block;
+        }
+
+        .endpoint-details {
+            margin-bottom: 1rem;
+        }
+
+        .endpoint-details h4 {
+            font-size: 0.875rem;
+            font-weight: 500;
+            color: var(--text);
+            margin-bottom: 0.5rem;
+        }
+
+        .endpoint-details p {
+            font-size: 0.875rem;
+            color: var(--text-muted);
+            margin-bottom: 0.5rem;
+        }
+
+        .params {
+            margin-bottom: 1rem;
+        }
+
+        .param {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-bottom: 0.5rem;
+            font-size: 0.875rem;
+        }
+
+        .param-name {
+            font-family: 'Monaco', 'Menlo', monospace;
+            color: var(--text);
+            font-weight: 500;
+        }
+
+        .param-type {
+            color: var(--info);
+            font-size: 0.75rem;
+        }
+
+        .param-required {
+            color: var(--error);
+            font-size: 0.75rem;
+        }
+
+        .param-description {
+            color: var(--text-muted);
+        }
+
+        .try-it {
+            background: var(--surface-hover);
+            border-radius: var(--radius);
+            padding: 1rem;
+            margin-top: 1rem;
+        }
+
+        .try-it h4 {
+            font-size: 0.875rem;
+            font-weight: 500;
+            color: var(--text);
+            margin-bottom: 0.75rem;
+        }
+
+        .input-group {
+            margin-bottom: 0.75rem;
+        }
+
+        .input-group label {
+            display: block;
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            margin-bottom: 0.25rem;
+        }
+
+        .input-group input {
+            width: 100%;
+            padding: 0.5rem;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            color: var(--text);
+            font-size: 0.875rem;
+            font-family: 'Monaco', 'Menlo', monospace;
+        }
+
+        .input-group input:focus {
+            outline: none;
+            border-color: var(--text-dim);
+        }
+
+        .try-btn {
+            padding: 0.5rem 1rem;
+            background: var(--text);
+            color: var(--bg);
+            border: none;
+            border-radius: var(--radius);
+            font-size: 0.875rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: var(--transition);
+        }
+
+        .try-btn:hover {
+            background: var(--accent-dim);
+        }
+
+        .response {
+            margin-top: 1rem;
+            padding: 1rem;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            font-family: 'Monaco', 'Menlo', monospace;
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            white-space: pre-wrap;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 0.25rem 0.5rem;
+            border-radius: var(--radius);
+            font-size: 0.75rem;
+            font-weight: 500;
+            margin-bottom: 0.5rem;
+        }
+
+        .status-200 {
+            background: var(--success);
+            color: white;
+        }
+
+        .status-error {
+            background: var(--error);
+            color: white;
+        }
+
+        @media (max-width: 768px) {
+            .nav {
+                flex-wrap: wrap;
+                gap: 0.5rem;
+            }
+
+            .nav-btn {
+                font-size: 0.75rem;
+                padding: 0.375rem 0.75rem;
+            }
+
+            .endpoint-info {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 0.5rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📚 Google Photos API Documentation</h1>
+            <p>Interactive documentation for all available endpoints</p>
+        </div>
+
+        <div class="nav">
+            <button class="nav-btn active" onclick="showSection('overview')">Overview</button>
+            <button class="nav-btn" onclick="showSection('files')">Files & Listing</button>
+            <button class="nav-btn" onclick="showSection('streaming')">Streaming</button>
+            <button class="nav-btn" onclick="showSection('download')">Download</button>
+            <button class="nav-btn" onclick="showSection('metadata')">Metadata</button>
+            <button class="nav-btn" onclick="showSection('utils')">Utils</button>
+        </div>
+
+        <div id="overview" class="section active">
+            <div class="endpoint-group">
+                <h3><i class="fas fa-info-circle"></i> API Overview</h3>
+                <div class="endpoint">
+                    <div class="endpoint-content" style="display: block;">
+                        <div class="endpoint-details">
+                            <h4>Base URL</h4>
+                            <p><code>http://localhost:8000</code></p>
+                            
+                            <h4>Authentication</h4>
+                            <p>Uses GP_AUTH_DATA from environment variables for Google Photos access.</p>
+                            
+                            <h4>Response Format</h4>
+                            <p>All endpoints return JSON responses unless specified otherwise.</p>
+                            
+                            <h4>CORS</h4>
+                            <p>CORS is enabled for all origins to allow browser access.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="files" class="section">
+            <div class="endpoint-group">
+                <h3><i class="fas fa-folder"></i> File Listing</h3>
+
+                <div class="endpoint">
+                    <div class="endpoint-header" onclick="toggleEndpoint(this)">
+                        <div class="endpoint-info">
+                            <span class="method get">GET</span>
+                            <span class="endpoint-path">/api/files/mp4</span>
+                            <span class="endpoint-description">List all MP4 video files</span>
+                        </div>
+                        <i class="fas fa-chevron-down expand-icon"></i>
+                    </div>
+                    <div class="endpoint-content">
+                        <div class="endpoint-details">
+                            <h4>Description</h4>
+                            <p>Returns a list of all MP4 video files from Google Photos with metadata including duration, file size, and TMDB information.</p>
+
+                            <h4>Response</h4>
+                            <p>JSON object with files array containing movie information.</p>
+                        </div>
+                        <div class="try-it">
+                            <h4>Try it out</h4>
+                            <button class="try-btn" onclick="tryEndpoint('/api/files/mp4', 'GET')">Execute</button>
+                            <div class="response" id="response-mp4" style="display: none;"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="endpoint">
+                    <div class="endpoint-header" onclick="toggleEndpoint(this)">
+                        <div class="endpoint-info">
+                            <span class="method get">GET</span>
+                            <span class="endpoint-path">/api/files/info</span>
+                            <span class="endpoint-description">Get file metadata by ID</span>
+                        </div>
+                        <i class="fas fa-chevron-down expand-icon"></i>
+                    </div>
+                    <div class="endpoint-content">
+                        <div class="endpoint-details">
+                            <h4>Description</h4>
+                            <p>Get detailed metadata for a specific file including duration, size, and technical details.</p>
+
+                            <h4>Parameters</h4>
+                            <div class="params">
+                                <div class="param">
+                                    <span class="param-name">id</span>
+                                    <span class="param-type">string</span>
+                                    <span class="param-required">required</span>
+                                    <span class="param-description">Google Photos file ID</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="try-it">
+                            <h4>Try it out</h4>
+                            <div class="input-group">
+                                <label>File ID</label>
+                                <input type="text" id="info-id" placeholder="AF1QipMH86yETEN4dL0RbsUwlCsFunvuOB_SusWXfpJB">
+                            </div>
+                            <button class="try-btn" onclick="tryEndpointWithParams('/api/files/info', 'GET', {id: document.getElementById('info-id').value})">Execute</button>
+                            <div class="response" id="response-info" style="display: none;"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="streaming" class="section">
+            <div class="endpoint-group">
+                <h3><i class="fas fa-play"></i> Video Streaming</h3>
+
+                <div class="endpoint">
+                    <div class="endpoint-header" onclick="toggleEndpoint(this)">
+                        <div class="endpoint-info">
+                            <span class="method get">GET</span>
+                            <span class="endpoint-path">/api/files/stream</span>
+                            <span class="endpoint-description">Proxy streaming through server</span>
+                        </div>
+                        <i class="fas fa-chevron-down expand-icon"></i>
+                    </div>
+                    <div class="endpoint-content">
+                        <div class="endpoint-details">
+                            <h4>Description</h4>
+                            <p>Stream video through your server for browser playback. Uses server bandwidth but provides better control and compatibility.</p>
+
+                            <h4>Features</h4>
+                            <p>• Content-Type: video/mp4 for browser playback<br>
+                               • Range request support for seeking<br>
+                               • CORS enabled for web apps</p>
+
+                            <h4>Parameters</h4>
+                            <div class="params">
+                                <div class="param">
+                                    <span class="param-name">id</span>
+                                    <span class="param-type">string</span>
+                                    <span class="param-required">required</span>
+                                    <span class="param-description">Google Photos file ID</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="try-it">
+                            <h4>Try it out</h4>
+                            <div class="input-group">
+                                <label>File ID</label>
+                                <input type="text" id="stream-id" placeholder="AF1QipMH86yETEN4dL0RbsUwlCsFunvuOB_SusWXfpJB">
+                            </div>
+                            <button class="try-btn" onclick="openStream('/api/files/stream', document.getElementById('stream-id').value)">Open Stream</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="endpoint">
+                    <div class="endpoint-header" onclick="toggleEndpoint(this)">
+                        <div class="endpoint-info">
+                            <span class="method get">GET</span>
+                            <span class="endpoint-path">/api/files/stream-direct</span>
+                            <span class="endpoint-description">Direct streaming redirect (0 bandwidth)</span>
+                        </div>
+                        <i class="fas fa-chevron-down expand-icon"></i>
+                    </div>
+                    <div class="endpoint-content">
+                        <div class="endpoint-details">
+                            <h4>Description</h4>
+                            <p>Redirects directly to Google Photos streaming URL. Uses zero server bandwidth as client streams directly from Google.</p>
+
+                            <h4>Features</h4>
+                            <p>• 302 redirect to googlevideo.com<br>
+                               • Zero server bandwidth usage<br>
+                               • Direct Google Photos streaming</p>
+
+                            <h4>Parameters</h4>
+                            <div class="params">
+                                <div class="param">
+                                    <span class="param-name">id</span>
+                                    <span class="param-type">string</span>
+                                    <span class="param-required">required</span>
+                                    <span class="param-description">Google Photos file ID</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="try-it">
+                            <h4>Try it out</h4>
+                            <div class="input-group">
+                                <label>File ID</label>
+                                <input type="text" id="stream-direct-id" placeholder="AF1QipMH86yETEN4dL0RbsUwlCsFunvuOB_SusWXfpJB">
+                            </div>
+                            <button class="try-btn" onclick="openStream('/api/files/stream-direct', document.getElementById('stream-direct-id').value)">Open Direct Stream</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="endpoint">
+                    <div class="endpoint-header" onclick="toggleEndpoint(this)">
+                        <div class="endpoint-info">
+                            <span class="method get">GET</span>
+                            <span class="endpoint-path">/api/files/smart-stream</span>
+                            <span class="endpoint-description">Smart streaming with cache</span>
+                        </div>
+                        <i class="fas fa-chevron-down expand-icon"></i>
+                    </div>
+                    <div class="endpoint-content">
+                        <div class="endpoint-details">
+                            <h4>Description</h4>
+                            <p>Advanced streaming with intelligent caching, instant seeking, and download-ahead strategy for optimal performance.</p>
+
+                            <h4>Features</h4>
+                            <p>• Download-ahead caching<br>
+                               • Instant seeking with metadata<br>
+                               • Virtual MP4 headers for compatibility<br>
+                               • Smart cache management</p>
+
+                            <h4>Parameters</h4>
+                            <div class="params">
+                                <div class="param">
+                                    <span class="param-name">id</span>
+                                    <span class="param-type">string</span>
+                                    <span class="param-required">required</span>
+                                    <span class="param-description">Google Photos file ID</span>
+                                </div>
+                                <div class="param">
+                                    <span class="param-name">reset</span>
+                                    <span class="param-type">boolean</span>
+                                    <span class="param-description">Reset cache state</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="try-it">
+                            <h4>Try it out</h4>
+                            <div class="input-group">
+                                <label>File ID</label>
+                                <input type="text" id="smart-stream-id" placeholder="AF1QipMH86yETEN4dL0RbsUwlCsFunvuOB_SusWXfpJB">
+                            </div>
+                            <button class="try-btn" onclick="openStream('/api/files/smart-stream', document.getElementById('smart-stream-id').value)">Open Smart Stream</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="download" class="section">
+            <div class="endpoint-group">
+                <h3><i class="fas fa-download"></i> Download</h3>
+
+                <div class="endpoint">
+                    <div class="endpoint-header" onclick="toggleEndpoint(this)">
+                        <div class="endpoint-info">
+                            <span class="method get">GET</span>
+                            <span class="endpoint-path">/api/files/download</span>
+                            <span class="endpoint-description">Download file through server</span>
+                        </div>
+                        <i class="fas fa-chevron-down expand-icon"></i>
+                    </div>
+                    <div class="endpoint-content">
+                        <div class="endpoint-details">
+                            <h4>Description</h4>
+                            <p>Download file through your server as a proxy. File is streamed through your server to the client.</p>
+
+                            <h4>Features</h4>
+                            <p>• Content-Disposition: attachment for download<br>
+                               • Uses server bandwidth<br>
+                               • Reliable download through proxy</p>
+
+                            <h4>Parameters</h4>
+                            <div class="params">
+                                <div class="param">
+                                    <span class="param-name">id</span>
+                                    <span class="param-type">string</span>
+                                    <span class="param-required">required</span>
+                                    <span class="param-description">Google Photos file ID</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="try-it">
+                            <h4>Try it out</h4>
+                            <div class="input-group">
+                                <label>File ID</label>
+                                <input type="text" id="download-id" placeholder="AF1QipMH86yETEN4dL0RbsUwlCsFunvuOB_SusWXfpJB">
+                            </div>
+                            <button class="try-btn" onclick="openDownload('/api/files/download', document.getElementById('download-id').value)">Download</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="endpoint">
+                    <div class="endpoint-header" onclick="toggleEndpoint(this)">
+                        <div class="endpoint-info">
+                            <span class="method get">GET</span>
+                            <span class="endpoint-path">/api/files/downloadDirect</span>
+                            <span class="endpoint-description">Direct download redirect</span>
+                        </div>
+                        <i class="fas fa-chevron-down expand-icon"></i>
+                    </div>
+                    <div class="endpoint-content">
+                        <div class="endpoint-details">
+                            <h4>Description</h4>
+                            <p>Redirects directly to Google Photos download URL. Client downloads directly from Google with zero server bandwidth usage.</p>
+
+                            <h4>Features</h4>
+                            <p>• 302 redirect to Google Photos<br>
+                               • Zero server bandwidth<br>
+                               • Direct download from Google</p>
+
+                            <h4>Parameters</h4>
+                            <div class="params">
+                                <div class="param">
+                                    <span class="param-name">id</span>
+                                    <span class="param-type">string</span>
+                                    <span class="param-required">required</span>
+                                    <span class="param-description">Google Photos file ID</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="try-it">
+                            <h4>Try it out</h4>
+                            <div class="input-group">
+                                <label>File ID</label>
+                                <input type="text" id="download-direct-id" placeholder="AF1QipMH86yETEN4dL0RbsUwlCsFunvuOB_SusWXfpJB">
+                            </div>
+                            <button class="try-btn" onclick="openDownload('/api/files/downloadDirect', document.getElementById('download-direct-id').value)">Download Direct</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="metadata" class="section">
+            <div class="endpoint-group">
+                <h3><i class="fas fa-info"></i> Metadata</h3>
+
+                <div class="endpoint">
+                    <div class="endpoint-header" onclick="toggleEndpoint(this)">
+                        <div class="endpoint-info">
+                            <span class="method post">POST</span>
+                            <span class="endpoint-path">/api/files/extract-all-metadata</span>
+                            <span class="endpoint-description">Extract metadata for MP4 files</span>
+                        </div>
+                        <i class="fas fa-chevron-down expand-icon"></i>
+                    </div>
+                    <div class="endpoint-content">
+                        <div class="endpoint-details">
+                            <h4>Description</h4>
+                            <p>Extract metadata from MP4 files by downloading the first 20MB and analyzing the file structure. Creates small metadata cache files.</p>
+
+                            <h4>Features</h4>
+                            <p>• Downloads only first 20MB for analysis<br>
+                               • Creates 1.4KB metadata cache files<br>
+                               • Batch processing with configurable limits<br>
+                               • Skip already cached files option</p>
+
+                            <h4>Parameters</h4>
+                            <div class="params">
+                                <div class="param">
+                                    <span class="param-name">limit</span>
+                                    <span class="param-type">integer</span>
+                                    <span class="param-description">Max files to process (10, 20, 50, 100)</span>
+                                </div>
+                                <div class="param">
+                                    <span class="param-name">skip_cached</span>
+                                    <span class="param-type">boolean</span>
+                                    <span class="param-description">Skip files with existing metadata</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="try-it">
+                            <h4>Try it out</h4>
+                            <div class="input-group">
+                                <label>Limit (10, 20, 50, 100)</label>
+                                <input type="number" id="metadata-limit" value="20" min="10" max="100">
+                            </div>
+                            <button class="try-btn" onclick="tryMetadataExtraction()">Extract Metadata</button>
+                            <div class="response" id="response-metadata" style="display: none;"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="endpoint">
+                    <div class="endpoint-header" onclick="toggleEndpoint(this)">
+                        <div class="endpoint-info">
+                            <span class="method get">GET</span>
+                            <span class="endpoint-path">/api/files/metadata-status</span>
+                            <span class="endpoint-description">Get metadata extraction status</span>
+                        </div>
+                        <i class="fas fa-chevron-down expand-icon"></i>
+                    </div>
+                    <div class="endpoint-content">
+                        <div class="endpoint-details">
+                            <h4>Description</h4>
+                            <p>Get status of metadata extraction including how many files have metadata cached and total cache size.</p>
+                        </div>
+                        <div class="try-it">
+                            <h4>Try it out</h4>
+                            <button class="try-btn" onclick="tryEndpoint('/api/files/metadata-status', 'GET')">Get Status</button>
+                            <div class="response" id="response-metadata-status" style="display: none;"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="utils" class="section">
+            <div class="endpoint-group">
+                <h3><i class="fas fa-tools"></i> Utilities</h3>
+
+                <div class="endpoint">
+                    <div class="endpoint-header" onclick="toggleEndpoint(this)">
+                        <div class="endpoint-info">
+                            <span class="method get">GET</span>
+                            <span class="endpoint-path">/api/files/direct-url</span>
+                            <span class="endpoint-description">Get direct download URL</span>
+                        </div>
+                        <i class="fas fa-chevron-down expand-icon"></i>
+                    </div>
+                    <div class="endpoint-content">
+                        <div class="endpoint-details">
+                            <h4>Description</h4>
+                            <p>Get the direct download URL from Google Photos without redirecting. Returns JSON with the URL.</p>
+
+                            <h4>Parameters</h4>
+                            <div class="params">
+                                <div class="param">
+                                    <span class="param-name">id</span>
+                                    <span class="param-type">string</span>
+                                    <span class="param-required">required</span>
+                                    <span class="param-description">Google Photos file ID</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="try-it">
+                            <h4>Try it out</h4>
+                            <div class="input-group">
+                                <label>File ID</label>
+                                <input type="text" id="direct-url-id" placeholder="AF1QipMH86yETEN4dL0RbsUwlCsFunvuOB_SusWXfpJB">
+                            </div>
+                            <button class="try-btn" onclick="tryEndpointWithParams('/api/files/direct-url', 'GET', {id: document.getElementById('direct-url-id').value})">Get URL</button>
+                            <div class="response" id="response-direct-url" style="display: none;"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="endpoint">
+                    <div class="endpoint-header" onclick="toggleEndpoint(this)">
+                        <div class="endpoint-info">
+                            <span class="method get">GET</span>
+                            <span class="endpoint-path">/api/cache/reset</span>
+                            <span class="endpoint-description">Reset cache</span>
+                        </div>
+                        <i class="fas fa-chevron-down expand-icon"></i>
+                    </div>
+                    <div class="endpoint-content">
+                        <div class="endpoint-details">
+                            <h4>Description</h4>
+                            <p>Reset the file cache and force refresh from Google Photos. Useful when files are added/removed externally.</p>
+                        </div>
+                        <div class="try-it">
+                            <h4>Try it out</h4>
+                            <button class="try-btn" onclick="tryEndpoint('/api/cache/reset', 'GET')">Reset Cache</button>
+                            <div class="response" id="response-cache-reset" style="display: none;"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Navigation
+        function showSection(sectionId) {
+            // Hide all sections
+            document.querySelectorAll('.section').forEach(section => {
+                section.classList.remove('active');
+            });
+
+            // Remove active class from all nav buttons
+            document.querySelectorAll('.nav-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+
+            // Show selected section
+            document.getElementById(sectionId).classList.add('active');
+
+            // Add active class to clicked button
+            event.target.classList.add('active');
+        }
+
+        // Toggle endpoint details
+        function toggleEndpoint(header) {
+            const endpoint = header.closest('.endpoint');
+            endpoint.classList.toggle('expanded');
+        }
+
+        // API Testing Functions
+        async function tryEndpoint(url, method = 'GET') {
+            const responseId = 'response-' + url.split('/').pop();
+            const responseElement = document.getElementById(responseId);
+
+            if (!responseElement) {
+                console.error('Response element not found:', responseId);
+                return;
+            }
+
+            responseElement.style.display = 'block';
+            responseElement.innerHTML = 'Loading...';
+
+            try {
+                const response = await fetch(url, { method });
+                const data = await response.json();
+
+                responseElement.innerHTML = `<div class="status-badge status-${response.status}">${response.status} ${response.statusText}</div>${JSON.stringify(data, null, 2)}`;
+            } catch (error) {
+                responseElement.innerHTML = `<div class="status-badge status-error">Error</div>${error.message}`;
+            }
+        }
+
+        async function tryEndpointWithParams(url, method = 'GET', params = {}) {
+            const responseId = 'response-' + url.split('/').pop();
+            const responseElement = document.getElementById(responseId);
+
+            if (!responseElement) {
+                console.error('Response element not found:', responseId);
+                return;
+            }
+
+            // Build URL with parameters
+            const urlWithParams = new URL(url, window.location.origin);
+            Object.keys(params).forEach(key => {
+                if (params[key]) {
+                    urlWithParams.searchParams.append(key, params[key]);
+                }
+            });
+
+            responseElement.style.display = 'block';
+            responseElement.innerHTML = 'Loading...';
+
+            try {
+                const response = await fetch(urlWithParams, { method });
+                const data = await response.json();
+
+                responseElement.innerHTML = `<div class="status-badge status-${response.status}">${response.status} ${response.statusText}</div>${JSON.stringify(data, null, 2)}`;
+            } catch (error) {
+                responseElement.innerHTML = `<div class="status-badge status-error">Error</div>${error.message}`;
+            }
+        }
+
+        function openStream(endpoint, fileId) {
+            if (!fileId) {
+                alert('Please enter a file ID');
+                return;
+            }
+
+            const url = `${endpoint}?id=${fileId}`;
+            window.open(url, '_blank');
+        }
+
+        function openDownload(endpoint, fileId) {
+            if (!fileId) {
+                alert('Please enter a file ID');
+                return;
+            }
+
+            const url = `${endpoint}?id=${fileId}`;
+            window.open(url, '_blank');
+        }
+
+        async function tryMetadataExtraction() {
+            const limit = document.getElementById('metadata-limit').value;
+            const responseElement = document.getElementById('response-metadata');
+
+            responseElement.style.display = 'block';
+            responseElement.innerHTML = 'Starting metadata extraction...';
+
+            try {
+                const response = await fetch(`/api/files/extract-all-metadata?limit=${limit}&skip_cached=true`, {
+                    method: 'POST'
+                });
+                const data = await response.json();
+
+                responseElement.innerHTML = `<div class="status-badge status-${response.status}">${response.status} ${response.statusText}</div>${JSON.stringify(data, null, 2)}`;
+            } catch (error) {
+                responseElement.innerHTML = `<div class="status-badge status-error">Error</div>${error.message}`;
+            }
+        }
+
+        // Auto-populate sample file ID
+        document.addEventListener('DOMContentLoaded', () => {
+            const sampleId = 'AF1QipMH86yETEN4dL0RbsUwlCsFunvuOB_SusWXfpJB';
+            document.querySelectorAll('input[type="text"]').forEach(input => {
+                if (input.placeholder.includes('AF1Q')) {
+                    input.value = sampleId;
+                }
+            });
+        });
+    </script>
+</body>
+</html>
